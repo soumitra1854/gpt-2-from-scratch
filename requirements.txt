@@ -1,0 +1,4 @@
+torch
+tiktoken
+transformers
+matplotlib
