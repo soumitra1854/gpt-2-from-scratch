@@ -146,8 +146,11 @@ The model is fine-tuned using a **parameter-efficient** approach:
 After fine-tuning with a stable learning rate (`1e-4`), the model achieved a **Final Test Accuracy of 95.33%**.
 
 The training process can be visualized with the following loss and accuracy plots, which are automatically saved in the `training_results/` directory.
-![Loss Curve](training_results/loss_plot.png)
-![Accuracy Curve](training_results/accuracy_plot.png)
+
+| Loss and Accuracy Curves |
+|:--------------------------:|
+| ![Loss Curve](training_results/loss_plot.png)      |
+| ![Accuracy Curve](training_results/accuracy_plot.png) |
 
 An interesting finding during testing was the model's limitation due to **domain mismatch**. While it performed well on the test set, it initially failed on custom spam messages with vocabulary (e.g., "rupees", "bank details") not present in the fine-tuning SMS dataset. This highlights the importance of having a diverse fine-tuning dataset that matches the target domain.
 ### Wrong Prediction Example
