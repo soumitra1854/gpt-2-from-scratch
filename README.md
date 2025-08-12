@@ -153,8 +153,8 @@ The training process can be visualized with the following loss and accuracy plot
 
 | Loss and Accuracy Curves |
 |:--------------------------:|
-| ![Loss Curve](training_results/spam_loss_plot.png)      |
-| ![Accuracy Curve](training_results/spam_accuracy_plot.png) |
+| <img src="training_results/spam_loss_plot.png" alt="Loss Curve" width="500"/>      |
+| <img src="training_results/spam_accuracy_plot.png" alt="Accuracy Curve" width="500"/> |
 
 ### Limitations
 An interesting finding during testing was the model's limitation due to **domain mismatch**. While it performed well on the test set, it initially failed on custom spam messages with vocabulary (e.g., "rupees", "bank details") not present in the fine-tuning SMS dataset. This highlights the importance of having a diverse fine-tuning dataset that matches the target domain.
@@ -175,5 +175,5 @@ python3 spam_ham_classifier.py --text "You have won 500 rupees, send me your ban
 ## References and Acknowledgements
 
 * **Primary Resource**: [Build a Large Language Model from Scratch](https://www.manning.com/books/build-a-large-language-model-from-scratch) by Sebastian Raschka.
-* **Video Guide**: [Vizuara - "LLM from Scratch" YouTube Playlist](https://www.youtube.com/playlist?list=PLPTV0NXA_ZSgsLAr8YCgCwhPIJNNtexWu).
+* **Video Guide**: [Vizuara - "Building LLMs from scratch" YouTube Playlist](https://www.youtube.com/playlist?list=PLPTV0NXA_ZSgsLAr8YCgCwhPIJNNtexWu).
 * **Additional Resource**: Andrej Karpathy's [nanoGPT](https://github.com/karpathy/nanoGPT).

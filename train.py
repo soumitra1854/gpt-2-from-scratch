@@ -1,5 +1,6 @@
 import torch
 import os
+import json
 import time
 import argparse
 import tiktoken
@@ -14,7 +15,7 @@ from utils import (
     load_weights_from_gpt2
 )
 from model import GPTModel, GPTSpamClassification
-from dataloader import create_dataloader, create_spam_dataloader
+from dataloader import create_dataloader, create_spam_dataloader, create_instruction_dataloader, format_input
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
 
@@ -109,13 +110,9 @@ def generate_and_print_sample(model, tokenizer, device, start_context):
     model.train()
 
 
-def train_model(model, train_loader, val_loader, optimizer, device, num_epochs,
-                eval_freq, eval_iter, start_context, tokenizer):
-    # Initialize lists to track losses and tokens seen
+def train_model(model, train_loader, val_loader, optimizer, device, num_epochs, eval_freq, eval_iter, start_context, tokenizer):
     train_losses, val_losses, track_tokens_seen = [], [], []
     tokens_seen, global_step = 0, -1
-
-    # Training loop
     for epoch in range(num_epochs):
         model.train()
         for input_batch, target_batch in train_loader:
@@ -135,7 +132,7 @@ def train_model(model, train_loader, val_loader, optimizer, device, num_epochs,
                 print(f"Ep {epoch+1} (Step {global_step:06d}): "
                       f"Train loss {train_loss:.3f}, Val loss {val_loss:.3f}")
 
-        # Print a sample text after each epoch
+        # Printing a sample response after each epoch
         generate_and_print_sample(
             model, tokenizer, device, start_context
         )
@@ -221,14 +218,24 @@ if __name__ == "__main__":
                         help="Path to save the model checkpoint.")
     parser.add_argument("--classification", action='store_true',
                         help="If set, train a classification model instead of a language model.")
+    parser.add_argument("--instruction_ft", action='store_true',
+                        help="If set, run instruction fine-tuning.")
     args = parser.parse_args()
 
     # --- Setup ---
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     torch.manual_seed(123)
+    tokenizer = tiktoken.get_encoding("gpt2")
 
     # --- Data Loading ---
-    if args.classification:
+    if args.instruction_ft:
+        train_loader = create_instruction_dataloader(
+            "data/instruction_train.json", tokenizer, batch_size=4, shuffle=True, drop_last=True)
+        val_loader = create_instruction_dataloader(
+            "data/instruction_val.json", tokenizer, batch_size=4, shuffle=False, drop_last=False)
+        test_loader = create_instruction_dataloader(
+            "data/instruction_test.json", tokenizer, batch_size=4, shuffle=False, drop_last=False)
+    elif args.classification:
         train_loader = create_spam_dataloader(
             "data/train.csv", batch_size=8, shuffle=True, drop_last=True)
         val_loader = create_spam_dataloader(
@@ -236,7 +243,6 @@ if __name__ == "__main__":
     else:
         with open(args.file_path, "r", encoding='utf-8') as f:
             text_data = f.read()
-
         train_ratio = 0.90
         split_idx = int(train_ratio * len(text_data))
         train_text = text_data[:split_idx]
@@ -256,7 +262,15 @@ if __name__ == "__main__":
         )
 
     # --- Model and Optimizer ---
-    if args.classification:
+    if args.instruction_ft:
+        model = GPTModel(GPT2_CONFIG_124M).to(device)
+        model = load_weights_from_gpt2(model, hf_model_name="gpt2")
+        optimizer = torch.optim.AdamW(
+            model.parameters(),
+            lr=1e-4,
+            weight_decay=0.1
+        )
+    elif args.classification:
         model = GPTSpamClassification(GPT2_CONFIG_124M).to(device)
         model.gpt_body = load_weights_from_gpt2(
             model.gpt_body, hf_model_name="gpt2"
@@ -273,6 +287,7 @@ if __name__ == "__main__":
         # Training the Classification Head
         for param in model.classification_head.parameters():
             param.requires_grad = True
+
         optimizer = torch.optim.AdamW(
             model.parameters(),
             lr=0.0001,
@@ -284,11 +299,19 @@ if __name__ == "__main__":
         optimizer = torch.optim.AdamW(
             model.parameters(), lr=args.learning_rate, weight_decay=0.1)
 
-    tokenizer = tiktoken.get_encoding("gpt2")
-
     # --- Training ---
     start_time = time.time()
-    if args.classification:
+    if args.instruction_ft:
+        with open("data/instruction_val.json", "r") as f:
+            val_json_data = json.load(f)
+        start_context = format_input(val_json_data[0])
+        print(f"Start context: {start_context}")
+        train_losses, val_losses, track_tokens_seen = train_model(
+            model=model, train_loader=train_loader, val_loader=val_loader,
+            optimizer=optimizer, device=device, num_epochs=2,
+            eval_freq=5, eval_iter=5, start_context=start_context, tokenizer=tokenizer
+        )
+    elif args.classification:
         train_losses, val_losses, train_accs, val_accs, examples_seen = train_classifier(
             model=model,
             train_loader=train_loader,
@@ -315,8 +338,10 @@ if __name__ == "__main__":
     end_time = time.time()
     print(f"Training finished in {(end_time - start_time) / 60:.2f} minutes.")
 
-    if args.classification:
-       checkpoint_path = "checkpoints/finetuned_spam.pth"
+    if args.instruction_ft:
+        checkpoint_path = "checkpoints/finetuned_instruction.pth"
+    elif args.classification:
+        checkpoint_path = "checkpoints/finetuned_spam.pth"
     else:
         checkpoint_path = args.checkpoint_path
     checkpoint_dir = os.path.dirname(checkpoint_path)
@@ -329,7 +354,13 @@ if __name__ == "__main__":
     if not os.path.exists(plot_dir):
         os.makedirs(plot_dir)
 
-    if args.classification:
+    if args.instruction_ft:
+        loss_plot_path = os.path.join(plot_dir, "instruction_loss_plot.png")
+        epochs_seen = torch.linspace(
+            0, 2, len(train_losses)).tolist()
+        plot_losses(epochs_seen, track_tokens_seen,
+                    train_losses, val_losses, loss_plot_path)
+    elif args.classification:
         loss_plot_path = os.path.join(plot_dir, "spam_loss_plot.png")
         epochs_tensor = torch.linspace(0, 5, len(train_losses))
         examples_seen_tensor = torch.linspace(
