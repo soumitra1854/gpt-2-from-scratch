@@ -315,24 +315,28 @@ if __name__ == "__main__":
     end_time = time.time()
     print(f"Training finished in {(end_time - start_time) / 60:.2f} minutes.")
 
-    checkpoint_dir = os.path.dirname(args.checkpoint_path)
+    if args.classification:
+       checkpoint_path = "checkpoints/finetuned_spam.pth"
+    else:
+        checkpoint_path = args.checkpoint_path
+    checkpoint_dir = os.path.dirname(checkpoint_path)
     if not os.path.exists(checkpoint_dir):
         os.makedirs(checkpoint_dir)
-    torch.save(model.state_dict(), args.checkpoint_path)
-    print(f"Model saved to {args.checkpoint_path}")
+    torch.save(model.state_dict(), checkpoint_path)
+    print(f"Model saved to {checkpoint_path}")
 
     plot_dir = "training_results"
     if not os.path.exists(plot_dir):
         os.makedirs(plot_dir)
 
     if args.classification:
-        loss_plot_path = os.path.join(plot_dir, "loss_plot.png")
+        loss_plot_path = os.path.join(plot_dir, "spam_loss_plot.png")
         epochs_tensor = torch.linspace(0, 5, len(train_losses))
         examples_seen_tensor = torch.linspace(
             0, examples_seen, len(train_losses))
         plot_values(epochs_tensor, examples_seen_tensor,
                     train_losses, val_losses, loss_plot_path)
-        acc_plot_path = os.path.join(plot_dir, "accuracy_plot.png")
+        acc_plot_path = os.path.join(plot_dir, "spam_accuracy_plot.png")
         epochs_tensor_acc = torch.linspace(0, args.num_epochs, len(train_accs))
         examples_seen_tensor_acc = torch.linspace(
             0, examples_seen, len(train_accs))
@@ -349,7 +353,7 @@ if __name__ == "__main__":
         test_accuracy = calc_accuracy_loader(test_loader, model, device)
         print(f"Final Test Accuracy: {test_accuracy*100:.2f}%")
     else:
-        plot_path = os.path.join(plot_dir, "loss_plot.png")
+        plot_path = os.path.join(plot_dir, "train_loss_plot.png")
         epochs_seen = torch.linspace(
             0, args.num_epochs, len(train_losses)).tolist()
         plot_losses(epochs_seen, track_tokens_seen,

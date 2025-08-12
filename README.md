@@ -49,8 +49,9 @@ This phase focuses on training the base GPT model for text completion.
 ### Setup and Usage
 
 1.  **Setup Environment**:
+    Make sure to install the `uv` command-line tool (uv is a Rust-based virtual environment manager):
     ```bash
-    # Create and activate a virtual environment
+    # Create and activate a virtual environment using uv
     uv venv
     source .venv/bin/activate
 
@@ -58,13 +59,13 @@ This phase focuses on training the base GPT model for text completion.
     uv pip install -r requirements.txt
     ```
 
-2.  **Training from Scratch**:
+3.  **Training from Scratch**:
     To train the model on a custom text file (e.g., `the-verdict.txt`):
     ```bash
     python train.py --file_path "data/the-verdict.txt" --num_epochs 10
     ```
 
-3.  **Generating Text**:
+4.  **Generating Text**:
     * **From your trained checkpoint:**
         ```bash
         python generate_text.py --prompt "The sun is bright outside"
@@ -73,24 +74,27 @@ This phase focuses on training the base GPT model for text completion.
         ```bash
         python generate_text.py --from_pretrained --prompt "The future of artificial intelligence is"
         ```
+### Pre-Training Results
 
-### Example Generative Results
+**Training and validation loss over epochs:**  
+<img src="training_results/train_loss_plot.png" alt="Loss Curve" width="600"/>
 
-> **Prompt:** "Let us go to"
->
-> **Reply (trained from scratch on "the-verdict.txt"):**
-> ```
-> Let us go to see terr what one of the axi," he had been with that pointed?"
->
-> He I blocked the you like to face back his window-curtains, with paint was, years down it were is the first
-> ```
->
-> **Reply (using pre-trained GPT-2 weights):**
-> ```
-> Let us go to the previous page to see the actual example (and then add a reference to the file). In your own program (such as a program where a variable name is supplied) there's an easy way: you can use any program for that.
-> ```
+#### Example Prompt and Model Replies
 
----
+> **Prompt:**  
+> `The future of artificial intelligence is`
+
+**Reply (trained from scratch on "the-verdict.txt"):**
+```
+The future of artificial intelligence is the ones I felt to paint because he was told Mrs.
+A "ob his an exquisburn's an unexpected her you know where remember getting face was to Mrs. It was's own _were, were heard, it in ext and then
+```
+
+**Reply (using pre-trained GPT-2 weights):**
+```
+The future of artificial intelligence is the development of new, faster ways to make intelligent machines. It's possible now to develop autonomous machines as fast as a human brain. The question becomes how quickly, and, if possible, with which to design an autonomous machine for that specific purpose.
+```
+It is evident from the above examples that the model's ability to generate coherent and contextually relevant text improves significantly when leveraging the pre-trained weights of GPT-2. This highlights the importance of large-scale pre-training on diverse, internet-scale datasets.
 
 ## Part 2: Classification Fine-Tuning (Spam Detection)
 
@@ -143,17 +147,18 @@ The model is fine-tuned using a **parameter-efficient** approach:
 
 ### Fine-Tuning Results
 
-After fine-tuning with a stable learning rate (`1e-4`), the model achieved a **Final Test Accuracy of 95.33%**.
+After fine-tuning with a stable learning rate (`1e-4`), the model achieved a **Test Accuracy of 95.33%**.
 
 The training process can be visualized with the following loss and accuracy plots, which are automatically saved in the `training_results/` directory.
 
 | Loss and Accuracy Curves |
 |:--------------------------:|
-| ![Loss Curve](training_results/loss_plot.png)      |
-| ![Accuracy Curve](training_results/accuracy_plot.png) |
+| ![Loss Curve](training_results/spam_loss_plot.png)      |
+| ![Accuracy Curve](training_results/spam_accuracy_plot.png) |
 
+### Limitations
 An interesting finding during testing was the model's limitation due to **domain mismatch**. While it performed well on the test set, it initially failed on custom spam messages with vocabulary (e.g., "rupees", "bank details") not present in the fine-tuning SMS dataset. This highlights the importance of having a diverse fine-tuning dataset that matches the target domain.
-### Wrong Prediction Example
+#### Wrong Prediction Example
 
 Here is an example where the model misclassifies a custom spam message due to domain mismatch:
 
