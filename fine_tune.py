@@ -157,7 +157,8 @@ def evaluate_instruction_model(model, data_loader, device, tokenizer, num_exampl
                         next_token = torch.multinomial(probs, num_samples=1)
                         instruction_tensor = torch.cat(
                             [instruction_tensor, next_token], dim=1)
-                        if next_token.item() == tokenizer.encode("<|endoftext|>")[0]:
+                        eos_token_id = tokenizer.encode("<|endoftext|>", allowed_special={"<|endoftext|>"})[0]
+                        if next_token.item() == eos_token_id:
                             break
                 generated_text = tokenizer.decode(
                     instruction_tensor[0].cpu().tolist())
