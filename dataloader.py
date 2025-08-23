@@ -122,7 +122,8 @@ class InstructionDataset(Dataset):
             full_text = instruction_plus_input + response_text
             # adding an end-of-text token
             full_text += "<|endoftext|>"
-            self.encoded_texts.append(self.tokenizer.encode(full_text, allowed_special={"<|endoftext|>"}))
+            self.encoded_texts.append(self.tokenizer.encode(
+                full_text, allowed_special={"<|endoftext|>"}))
 
     def __getitem__(self, index):
         return self.encoded_texts[index]
@@ -157,7 +158,8 @@ def custom_collate_fn(batch, pad_token_id=50256, ignore_index=-100,  device="cpu
 
     return inputs_tensor, targets_tensor
 
-def create_instruction_dataloader(json_file, tokenizer = tiktoken.get_encoding("gpt2"), batch_size=8, shuffle=False, drop_last=False, num_workers=0):
+
+def create_instruction_dataloader(json_file, tokenizer=tiktoken.get_encoding("gpt2"), batch_size=8, shuffle=False, drop_last=False, num_workers=0):
     dataset = InstructionDataset(json_file, tokenizer)
     return DataLoader(
         dataset=dataset,

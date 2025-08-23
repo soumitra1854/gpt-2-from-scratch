@@ -41,7 +41,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--model_path",
         type=str,
-        default="checkpoints/finetuned_spam.pth",
+        default="checkpoints/finetuned_spam_model_only.pth",
         help="Path to the fine-tuned model checkpoint."
     )
     args = parser.parse_args()

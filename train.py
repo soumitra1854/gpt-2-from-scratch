@@ -1,88 +1,41 @@
 import torch
-import os
-import json
-import time
 import argparse
+import os
+import time
 import tiktoken
 from utils import (
     Custom_GPT2_config,
-    GPT2_CONFIG_124M,
     generate,
     calc_loss_loader,
     calc_loss_batch,
     text_to_token_ids,
-    token_ids_to_text,
-    load_weights_from_gpt2
+    token_ids_to_text
 )
-from model import GPTModel, GPTSpamClassification
-from dataloader import create_dataloader, create_spam_dataloader, create_instruction_dataloader, format_input
+from model import GPTModel
+from dataloader import create_dataloader
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
 
 
 def plot_losses(epochs_seen, tokens_seen, train_losses, val_losses, save_path):
-    fig, ax1 = plt.subplots(figsize=(10, 5))
-    ax1.plot(epochs_seen, train_losses, label="Training loss")
-    ax1.plot(epochs_seen, val_losses, linestyle="-.", label="Validation loss")
-    ax1.set_xlabel("Epochs")
-    ax1.set_ylabel("Loss")
-    ax1.legend(loc="upper right")
+    fig, ax1 = plt.subplots(figsize=(12, 7))
+    ax1.plot(epochs_seen, train_losses, label="Training loss", linewidth=2)
+    ax1.plot(epochs_seen, val_losses, linestyle="-.",
+             label="Validation loss", linewidth=2)
+    ax1.set_xlabel("Epochs", fontsize=12)
+    ax1.set_ylabel("Loss", fontsize=12)
+    ax1.legend(loc="upper right", frameon=True, fancybox=True, shadow=True)
     ax1.xaxis.set_major_locator(MaxNLocator(integer=True))
+    ax1.grid(True, alpha=0.3)
     ax2 = ax1.twiny()
     ax2.plot(tokens_seen, train_losses, alpha=0)
-    ax2.set_xlabel("Tokens seen")
-    fig.tight_layout()
-    plt.savefig(save_path)
+    ax2.set_xlabel("Tokens seen", fontsize=12)
+    plt.title("Training and Validation Loss over Epochs",
+              fontsize=16, fontweight='bold', color='blue', pad=20)
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=300, bbox_inches='tight')
     plt.close()
     print(f"Loss plot saved to {save_path}")
-
-
-def evaluate_classifier(model, train_loader, val_loader, device, eval_iter):
-    model.eval()
-    train_loss, val_loss = 0., 0.
-    with torch.no_grad():
-        # Calculate loss for the training set
-        for i, (input_batch, target_batch) in enumerate(train_loader):
-            if i >= eval_iter:
-                break
-            input_batch, target_batch = input_batch.to(
-                device), target_batch.to(device)
-            logits = model(input_batch)
-            loss = torch.nn.functional.cross_entropy(
-                logits[:, -1], target_batch)
-            train_loss += loss.item()
-
-        # Calculate loss for the validation set
-        for i, (input_batch, target_batch) in enumerate(val_loader):
-            if i >= eval_iter:
-                break
-            input_batch, target_batch = input_batch.to(
-                device), target_batch.to(device)
-            logits = model(input_batch)
-            loss = torch.nn.functional.cross_entropy(
-                logits[:, -1], target_batch)
-            val_loss += loss.item()
-
-    model.train()
-    return train_loss / eval_iter, val_loss / eval_iter
-
-
-def plot_values(epochs_seen, examples_seen, train_values, val_values, save_path, label="loss"):
-    fig, ax1 = plt.subplots(figsize=(5, 3))
-    ax1.plot(epochs_seen, train_values, label=f"Training {label}")
-    ax1.plot(epochs_seen, val_values, linestyle="-.",
-             label=f"Validation {label}")
-    ax1.set_xlabel("Epochs")
-    ax1.set_ylabel(label.capitalize())
-    ax1.legend()
-    ax2 = ax1.twiny()  # Create a second x-axis that shares the same y-axis
-    # Invisible plot for aligning ticks
-    ax2.plot(examples_seen, train_values, alpha=0)
-    ax2.set_xlabel("Examples seen")
-    fig.tight_layout()  # Adjust layout to make room
-    plt.savefig(save_path)
-    plt.close()
-    print(f"{label.capitalize()} plot saved to {save_path}")
 
 
 def evaluate_model(model, train_loader, val_loader, device, eval_iter):
@@ -106,21 +59,28 @@ def generate_and_print_sample(model, tokenizer, device, start_context):
             max_new_tokens=50, context_size=context_size
         )
     decoded_text = token_ids_to_text(token_ids, tokenizer)
-    print(decoded_text.replace("\n", " "))  # Compact print format
+    print(f"Sample generation: {decoded_text.replace(chr(10), ' ')}")
     model.train()
 
 
-def train_model(model, train_loader, val_loader, optimizer, device, num_epochs, eval_freq, eval_iter, start_context, tokenizer):
+def train_model(model, train_loader, val_loader, optimizer, device, num_epochs, eval_freq, eval_iter, start_context, tokenizer, start_epoch=0):
     train_losses, val_losses, track_tokens_seen = [], [], []
-    tokens_seen, global_step = 0, -1
-    for epoch in range(num_epochs):
+    num_tokens_seen, global_step = 0, -1
+
+    print(f"Starting training from epoch {start_epoch + 1}")
+
+    for epoch in range(start_epoch, num_epochs):
         model.train()
+        epoch_start_time = time.time()
+
         for input_batch, target_batch in train_loader:
             optimizer.zero_grad()
             loss = calc_loss_batch(input_batch, target_batch, model, device)
             loss.backward()
+            # Gradient clipping for stability
+            # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
-            tokens_seen += input_batch.numel()
+            num_tokens_seen += input_batch.numel()
             global_step += 1
 
             if global_step % eval_freq == 0:
@@ -128,201 +88,182 @@ def train_model(model, train_loader, val_loader, optimizer, device, num_epochs, 
                     model, train_loader, val_loader, device, eval_iter)
                 train_losses.append(train_loss)
                 val_losses.append(val_loss)
-                track_tokens_seen.append(tokens_seen)
+                track_tokens_seen.append(num_tokens_seen)
                 print(f"Ep {epoch+1} (Step {global_step:06d}): "
                       f"Train loss {train_loss:.3f}, Val loss {val_loss:.3f}")
+
+        epoch_time = time.time() - epoch_start_time
+        print(f"Epoch {epoch+1} completed in {epoch_time:.2f} seconds")
 
         # Printing a sample response after each epoch
         generate_and_print_sample(
             model, tokenizer, device, start_context
         )
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
     return train_losses, val_losses, track_tokens_seen
-
-
-def calc_accuracy_loader(data_loader, model, device, num_batches=None):
-    model.eval()
-    correct_predictions, num_examples = 0, 0
-
-    if num_batches is None:
-        num_batches = len(data_loader)
-    else:
-        num_batches = min(num_batches, len(data_loader))
-    for i, (input_batch, target_batch) in enumerate(data_loader):
-        if i < num_batches:
-            input_batch, target_batch = input_batch.to(
-                device), target_batch.to(device)
-
-            with torch.no_grad():
-                # Logits of last output token
-                logits = model(input_batch)[:, -1, :]
-            predicted_labels = torch.argmax(logits, dim=-1)
-
-            num_examples += predicted_labels.shape[0]
-            correct_predictions += (predicted_labels ==
-                                    target_batch).sum().item()
-        else:
-            break
-    return correct_predictions / num_examples
-
-
-def train_classifier(model, train_loader, val_loader, optimizer, device, num_epochs, eval_freq, eval_iter):
-    train_losses, val_losses, train_accs, val_accs = [], [], [], []
-    examples_seen, global_step = 0, -1
-
-    for epoch in range(num_epochs):
-        model.train()
-        for input_batch, target_labels in train_loader:
-            optimizer.zero_grad()
-            input_batch, target_labels = input_batch.to(
-                device), target_labels.to(device)
-            logits = model(input_batch)
-            loss = torch.nn.functional.cross_entropy(
-                logits[:, -1], target_labels)
-            loss.backward()
-            optimizer.step()
-            examples_seen += input_batch.shape[0]
-            global_step += 1
-            if global_step % eval_freq == 0:
-                train_loss, val_loss = evaluate_classifier(
-                    model, train_loader, val_loader, device, eval_iter)
-                train_losses.append(train_loss)
-                val_losses.append(val_loss)
-                print(f"Ep {epoch+1} (Step {global_step:06d}): "
-                      f"Train loss {train_loss:.3f}, Val loss {val_loss:.3f}")
-        # Evaluation loop
-        model.eval()
-        train_acc = calc_accuracy_loader(
-            train_loader, model, device, num_batches=eval_iter)
-        val_acc = calc_accuracy_loader(
-            val_loader, model, device, num_batches=eval_iter)
-        print(
-            f"Epoch {epoch+1}: Train Acc {train_acc*100:.2f}% | Val Acc {val_acc*100:.2f}%"
-        )
-        train_accs.append(train_acc)
-        val_accs.append(val_acc)
-    return train_losses, val_losses, train_accs, val_accs, examples_seen
 
 
 if __name__ == "__main__":
     # --- Argument Parsing ---
-    parser = argparse.ArgumentParser(description="Train a GPT model.")
+    parser = argparse.ArgumentParser(
+        description="Train a GPT-2 model from scratch.")
+
+    # Data arguments
     parser.add_argument("--file_path", type=str, default="data/the-verdict.txt",
                         help="Path to the training text file.")
+    parser.add_argument("--train_ratio", type=float, default=0.90,
+                        help="Ratio of data to use for training (default: 0.90)")
+
+    # Training hyperparameters
     parser.add_argument("--num_epochs", type=int, default=10,
                         help="Number of training epochs.")
-    parser.add_argument("--learning_rate", type=float,
-                        default=5e-4, help="Learning rate for the optimizer.")
+    parser.add_argument("--learning_rate", type=float, default=5e-4,
+                        help="Learning rate for the optimizer.")
     parser.add_argument("--batch_size", type=int, default=2,
                         help="Batch size for training.")
+    parser.add_argument("--weight_decay", type=float, default=0.1,
+                        help="Weight decay for optimizer (default: 0.1)")
+    parser.add_argument("--eval_freq", type=int, default=5,
+                        help="Evaluation frequency during training (default: 5)")
+    parser.add_argument("--eval_iter", type=int, default=5,
+                        help="Number of iterations for evaluation (default: 5)")
+
+    # Model and checkpoint arguments
     parser.add_argument("--checkpoint_path", type=str, default="checkpoints/trained_model.pth",
                         help="Path to save the model checkpoint.")
-    parser.add_argument("--classification", action='store_true',
-                        help="If set, train a classification model instead of a language model.")
-    parser.add_argument("--instruction_ft", action='store_true',
-                        help="If set, run instruction fine-tuning.")
+    parser.add_argument("--resume", type=str,
+                        help="Resume training from checkpoint")
+    parser.add_argument("--start_context", type=str, default="Every effort moves you",
+                        help="Starting context for sample generation")
+
+    # Output arguments
+    parser.add_argument("--plot_dir", type=str, default="training_results",
+                        help="Directory to save training plots")
+    parser.add_argument("--save_freq", type=int, default=0,
+                        help="Save checkpoint every N epochs (0 = only at end)")
+
     args = parser.parse_args()
+
+    # --- Validation ---
+    if not os.path.exists(args.file_path):
+        print(f"Error: Training file '{args.file_path}' not found!")
+        print("Please ensure the training data file exists.")
+        exit(1)
+
+    if args.train_ratio <= 0 or args.train_ratio >= 1:
+        print("Error: train_ratio must be between 0 and 1")
+        exit(1)
 
     # --- Setup ---
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     torch.manual_seed(123)
-    tokenizer = tiktoken.get_encoding("gpt2")
+    print(f"Using device: {device}")
+    print(f"Training parameters:")
+    print(f"  - File: {args.file_path}")
+    print(f"  - Epochs: {args.num_epochs}")
+    print(f"  - Batch size: {args.batch_size}")
+    print(f"  - Learning rate: {args.learning_rate}")
+    print(f"  - Weight decay: {args.weight_decay}")
+    print(
+        f"  - Train/Val split: {args.train_ratio:.1%}/{1-args.train_ratio:.1%}")
 
     # --- Data Loading ---
-    if args.instruction_ft:
-        train_loader = create_instruction_dataloader(
-            "data/instruction_train.json", tokenizer, batch_size=4, shuffle=True, drop_last=True)
-        val_loader = create_instruction_dataloader(
-            "data/instruction_val.json", tokenizer, batch_size=4, shuffle=False, drop_last=False)
-        test_loader = create_instruction_dataloader(
-            "data/instruction_test.json", tokenizer, batch_size=4, shuffle=False, drop_last=False)
-    elif args.classification:
-        train_loader = create_spam_dataloader(
-            "data/train.csv", batch_size=8, shuffle=True, drop_last=True)
-        val_loader = create_spam_dataloader(
-            "data/validation.csv", batch_size=8, shuffle=False)
-    else:
+    print("Loading and preprocessing data...")
+    try:
         with open(args.file_path, "r", encoding='utf-8') as f:
             text_data = f.read()
-        train_ratio = 0.90
-        split_idx = int(train_ratio * len(text_data))
-        train_text = text_data[:split_idx]
-        val_text = text_data[split_idx:]
+    except UnicodeDecodeError:
+        print("Warning: UTF-8 decoding failed, trying with latin-1 encoding")
+        with open(args.file_path, "r", encoding='latin-1') as f:
+            text_data = f.read()
 
-        train_loader = create_dataloader(
-            train_text,
-            batch_size=args.batch_size,
-            context_size=Custom_GPT2_config["context_length"],
-            stride=Custom_GPT2_config["context_length"]
-        )
-        val_loader = create_dataloader(
-            val_text,
-            batch_size=args.batch_size,
-            context_size=Custom_GPT2_config["context_length"],
-            stride=Custom_GPT2_config["context_length"]
-        )
+    if len(text_data) == 0:
+        print("Error: Training file is empty!")
+        exit(1)
+
+    print(f"Loaded text with {len(text_data):,} characters")
+
+    split_idx = int(args.train_ratio * len(text_data))
+    train_text = text_data[:split_idx]
+    val_text = text_data[split_idx:]
+
+    print(f"Training text: {len(train_text):,} characters")
+    print(f"Validation text: {len(val_text):,} characters")
+
+    train_loader = create_dataloader(
+        train_text,
+        batch_size=args.batch_size,
+        context_size=Custom_GPT2_config["context_length"],
+        stride=Custom_GPT2_config["context_length"]
+    )
+    val_loader = create_dataloader(
+        val_text,
+        batch_size=args.batch_size,
+        context_size=Custom_GPT2_config["context_length"],
+        stride=Custom_GPT2_config["context_length"]
+    )
+
+    print(f"Training batches: {len(train_loader)}")
+    print(f"Validation batches: {len(val_loader)}")
 
     # --- Model and Optimizer ---
-    if args.instruction_ft:
-        model = GPTModel(GPT2_CONFIG_124M).to(device)
-        model = load_weights_from_gpt2(model, hf_model_name="gpt2")
-        optimizer = torch.optim.AdamW(
-            model.parameters(),
-            lr=1e-4,
-            weight_decay=0.1
-        )
-    elif args.classification:
-        model = GPTSpamClassification(GPT2_CONFIG_124M).to(device)
-        model.gpt_body = load_weights_from_gpt2(
-            model.gpt_body, hf_model_name="gpt2"
-        )
-        for param in model.parameters():
-            param.requires_grad = False
+    print("Initializing model and optimizer...")
+    model = GPTModel(Custom_GPT2_config).to(device)
+    tokenizer = tiktoken.get_encoding("gpt2")
 
-        # Training the last Transformer block
-        for param in model.gpt_body.trf_blocks[-1].parameters():
-            param.requires_grad = True
-        # Training Final Layer Norm
-        for param in model.gpt_body.final_norm.parameters():
-            param.requires_grad = True
-        # Training the Classification Head
-        for param in model.classification_head.parameters():
-            param.requires_grad = True
+    # Count parameters
+    total_params = sum(p.numel() for p in model.parameters())
+    trainable_params = sum(p.numel()
+                           for p in model.parameters() if p.requires_grad)
+    print(
+        f"Model parameters: {total_params:,} total, {trainable_params:,} trainable")
 
-        optimizer = torch.optim.AdamW(
-            model.parameters(),
-            lr=0.0001,
-            weight_decay=0.1
-        )
-    else:
-        # Initialize the GPT model for text generation
-        model = GPTModel(Custom_GPT2_config).to(device)
-        optimizer = torch.optim.AdamW(
-            model.parameters(), lr=args.learning_rate, weight_decay=0.1)
+    optimizer = torch.optim.AdamW(
+        model.parameters(),
+        lr=args.learning_rate,
+        weight_decay=args.weight_decay
+    )
+
+    # --- Resume Training if Specified ---
+    start_epoch = 0
+    if args.resume:
+        if os.path.exists(args.resume):
+            print(f"Resuming from checkpoint: {args.resume}")
+            checkpoint = torch.load(args.resume, map_location=device)
+
+            if isinstance(checkpoint, dict):
+                if 'model_state_dict' in checkpoint:
+                    model.load_state_dict(checkpoint['model_state_dict'])
+                    print("Loaded model state from checkpoint")
+
+                    if 'optimizer_state_dict' in checkpoint:
+                        optimizer.load_state_dict(
+                            checkpoint['optimizer_state_dict'])
+                        print("Loaded optimizer state from checkpoint")
+
+                    if 'epoch' in checkpoint:
+                        start_epoch = checkpoint['epoch']
+                        print(f"Resuming from epoch {start_epoch}")
+
+                    if 'train_losses' in checkpoint:
+                        print("Previous training history available in checkpoint")
+                else:
+                    model.load_state_dict(checkpoint)
+                    print("Loaded model weights from checkpoint")
+            else:
+                model.load_state_dict(checkpoint)
+                print("Loaded model weights from checkpoint")
+        else:
+            print(
+                f"Warning: Checkpoint file '{args.resume}' not found. Starting from scratch.")
 
     # --- Training ---
+    print("\nStarting training...")
     start_time = time.time()
-    if args.instruction_ft:
-        with open("data/instruction_val.json", "r") as f:
-            val_json_data = json.load(f)
-        start_context = format_input(val_json_data[0])
-        print(f"Start context: {start_context}")
-        train_losses, val_losses, track_tokens_seen = train_model(
-            model=model, train_loader=train_loader, val_loader=val_loader,
-            optimizer=optimizer, device=device, num_epochs=2,
-            eval_freq=5, eval_iter=5, start_context=start_context, tokenizer=tokenizer
-        )
-    elif args.classification:
-        train_losses, val_losses, train_accs, val_accs, examples_seen = train_classifier(
-            model=model,
-            train_loader=train_loader,
-            val_loader=val_loader,
-            optimizer=optimizer,
-            device=device,
-            num_epochs=5,
-            eval_freq=50,
-            eval_iter=5
-        )
-    else:
+
+    try:
         train_losses, val_losses, track_tokens_seen = train_model(
             model=model,
             train_loader=train_loader,
@@ -330,62 +271,91 @@ if __name__ == "__main__":
             optimizer=optimizer,
             device=device,
             num_epochs=args.num_epochs,
-            eval_freq=5,
-            eval_iter=5,
-            start_context="Every effort moves you",
-            tokenizer=tokenizer
+            eval_freq=args.eval_freq,
+            eval_iter=args.eval_iter,
+            start_context=args.start_context,
+            tokenizer=tokenizer,
+            start_epoch=start_epoch
         )
-    end_time = time.time()
-    print(f"Training finished in {(end_time - start_time) / 60:.2f} minutes.")
+    except KeyboardInterrupt:
+        print("\nTraining interrupted by user. Saving current state...")
+        # Save interrupted training state
+        interrupted_path = args.checkpoint_path.replace(
+            '.pth', '_interrupted.pth')
+        checkpoint_data = {
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'epoch': start_epoch,  # Current epoch when interrupted
+            'config': Custom_GPT2_config,
+            'args': vars(args)
+        }
+        torch.save(checkpoint_data, interrupted_path)
+        print(f"Interrupted state saved to {interrupted_path}")
+        exit(0)
 
-    if args.instruction_ft:
-        checkpoint_path = "checkpoints/finetuned_instruction.pth"
-    elif args.classification:
-        checkpoint_path = "checkpoints/finetuned_spam.pth"
-    else:
-        checkpoint_path = args.checkpoint_path
-    checkpoint_dir = os.path.dirname(checkpoint_path)
+    end_time = time.time()
+    training_time = (end_time - start_time) / 60
+    print(f"\nTraining completed in {training_time:.2f} minutes")
+    print(
+        f"Average time per epoch: {training_time/args.num_epochs:.2f} minutes")
+
+    # Memory cleanup
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        print("GPU memory cache cleared")
+
+    # --- Save Model ---
+    print("Saving final model...")
+    checkpoint_dir = os.path.dirname(args.checkpoint_path)
     if not os.path.exists(checkpoint_dir):
         os.makedirs(checkpoint_dir)
-    torch.save(model.state_dict(), checkpoint_path)
-    print(f"Model saved to {checkpoint_path}")
 
-    plot_dir = "training_results"
-    if not os.path.exists(plot_dir):
-        os.makedirs(plot_dir)
+    # Save comprehensive checkpoint
+    checkpoint_data = {
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+        'epoch': args.num_epochs,
+        'train_losses': train_losses,
+        'val_losses': val_losses,
+        'track_tokens_seen': track_tokens_seen,
+        'config': Custom_GPT2_config,
+        'args': vars(args),
+        'training_time_minutes': training_time
+    }
+    torch.save(checkpoint_data, args.checkpoint_path)
+    print(f"Full checkpoint saved to {args.checkpoint_path}")
 
-    if args.instruction_ft:
-        loss_plot_path = os.path.join(plot_dir, "instruction_loss_plot.png")
-        epochs_seen = torch.linspace(
-            0, 2, len(train_losses)).tolist()
-        plot_losses(epochs_seen, track_tokens_seen,
-                    train_losses, val_losses, loss_plot_path)
-    elif args.classification:
-        loss_plot_path = os.path.join(plot_dir, "spam_loss_plot.png")
-        epochs_tensor = torch.linspace(0, 5, len(train_losses))
-        examples_seen_tensor = torch.linspace(
-            0, examples_seen, len(train_losses))
-        plot_values(epochs_tensor, examples_seen_tensor,
-                    train_losses, val_losses, loss_plot_path)
-        acc_plot_path = os.path.join(plot_dir, "spam_accuracy_plot.png")
-        epochs_tensor_acc = torch.linspace(0, args.num_epochs, len(train_accs))
-        examples_seen_tensor_acc = torch.linspace(
-            0, examples_seen, len(train_accs))
-        plot_values(
-            epochs_tensor_acc, examples_seen_tensor_acc,
-            train_accs, val_accs, acc_plot_path, label="accuracy"
-        )
-        print("Evaluating final model on the test set...")
-        test_loader = create_spam_dataloader(
-            "data/test.csv",
-            batch_size=8,
-            shuffle=False
-        )
-        test_accuracy = calc_accuracy_loader(test_loader, model, device)
-        print(f"Final Test Accuracy: {test_accuracy*100:.2f}%")
-    else:
-        plot_path = os.path.join(plot_dir, "train_loss_plot.png")
-        epochs_seen = torch.linspace(
-            0, args.num_epochs, len(train_losses)).tolist()
-        plot_losses(epochs_seen, track_tokens_seen,
-                    train_losses, val_losses, plot_path)
+    # Also save model-only version for inference
+    model_only_path = args.checkpoint_path.replace('.pth', '_model_only.pth')
+    torch.save(model.state_dict(), model_only_path)
+    print(f"Model weights saved to {model_only_path}")
+
+    # --- Generate Training Plots ---
+    print("Generating training plots...")
+    if not os.path.exists(args.plot_dir):
+        os.makedirs(args.plot_dir)
+
+    plot_path = os.path.join(args.plot_dir, "train_loss_plot.png")
+    epochs_seen = torch.linspace(
+        0, args.num_epochs, len(train_losses)).tolist()
+    plot_losses(epochs_seen, track_tokens_seen,
+                train_losses, val_losses, plot_path)
+
+    # --- Final Summary ---
+    print("\n" + "="*50)
+    print("TRAINING SUMMARY")
+    print("="*50)
+    print(f"Training file: {args.file_path}")
+    print(f"Epochs completed: {args.num_epochs}")
+    print(f"Final training loss: {train_losses[-1]:.4f}")
+    print(f"Final validation loss: {val_losses[-1]:.4f}")
+    print(f"Total tokens processed: {track_tokens_seen[-1]:,}")
+    print(f"Training time: {training_time:.2f} minutes")
+    print(f"Model saved to: {args.checkpoint_path}")
+    print(f"Plots saved to: {args.plot_dir}")
+
+    # Final memory cleanup
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
+    print("\nTraining completed successfully! 🎉")

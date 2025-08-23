@@ -3,3 +3,4 @@ tiktoken
 transformers
 pandas
 matplotlib
+Flask==2.3.3

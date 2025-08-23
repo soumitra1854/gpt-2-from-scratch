@@ -1,19 +1,21 @@
-# GPT From Scratch
+# GPT-2 From Scratch
 
-This project documents the journey of building, pre-training, and fine-tuning a GPT-style Transformer model from the ground up using PyTorch. The goal was to gain a first-principles understanding of modern language model architectures, moving beyond high-level library calls.
+This project demonstrates the journey of building, pre-training, and fine-tuning a GPT-2 model from the ground up using PyTorch. The goal is to gain a first-principles understanding of modern Large Language Model (LLM) architectures, moving beyond high-level abstractions provided by tools like LangChain, Hugging Face Transformers, and OpenAI's API.
 
-The implementation is based on the GPT-2 (124M parameter) architecture and is divided into two main parts:
+This implementation is a replication of the GPT-2 (124M parameters) architecture and is divided into two main parts:
 1.  **Generative Pre-Training**: Training the base model to perform text completion on a custom corpus.
-2.  **Classification Fine-Tuning**: Adapting the pre-trained model for a specific downstream task—spam detection.
+2.  **Fine-Tuning**: Fine-tuning the foundational GPT-2 (124M) model for specific downstream tasks. Two different fine-tuning techniques are used:
+    * **Classification Fine-Tuning**: Adapting the pre-trained model for email spam detection.
+    * **Instruction Fine-Tuning**: Training the model to follow specific instructions or prompts more effectively.
 
-The primary learning resources for this project were the book **"Build a Large Language Model from Scratch"** by Sebastian Raschka and the **Vizuara "LLM from Scratch"** YouTube playlist.
+The primary learning resources for this project are the book **"Build a Large Language Model from Scratch"** by Sebastian Raschka and the **Vizuara - "Building LLMs from scratch"** YouTube playlist.
 
 ## Key Features
 
-* **From-Scratch Architecture**: All core components, including `Multi-Head Causal Self-Attention`, `Transformer Blocks`, and `LayerNorm`, are implemented from the ground up.
-* **Generative Pre-Training**: The `train.py` script can train the model for text completion on any `.txt` file.
-* **Pre-trained Weight Loading**: Includes a utility to download and load the official GPT-2 (124M) weights from Hugging Face into the custom model architecture.
-* **Parameter-Efficient Fine-Tuning (PEFT)**: The model is fine-tuned for spam classification by freezing most of the pre-trained layers and only training the final transformer block and a new classification head.
+* **From-Scratch Architecture**: All core components, including `LayerNorm`, `Multi-Head Causal Self-Attention`, `Transformer Blocks`, and `GPTModel` are implemented from the ground up.
+* **Generative Pre-Training**: The `train.py` script can train the model for text completion on any custom `.txt` file.
+* **Pre-trained Weight Loading**: Includes a utility to download and load the official GPT-2 (124M) weights from Hugging Face into our model architecture.
+* **Parameter-Efficient Fine-Tuning (PEFT)**: The model is fine-tuned for spam classification by freezing most of the pre-trained layers and only training some specific layers, including the final transformer block and a new classification head.
 * **Flexible Text Generation & Inference**: Dedicated scripts to generate free-form text and classify new messages as spam or ham.
 * **Training Visualization**: Automatically generates plots for loss and accuracy curves during training.
 
@@ -22,9 +24,9 @@ The primary learning resources for this project were the book **"Build a Large L
 The project is organized into a modular and reusable structure:
 
 ```
-gpt-from-scratch/
+gpt-2-from-scratch/
 |
-├── data/                       # For storing datasets (e.g., train.csv, val.csv)
+├── data/                       # For storing datasets (e.g., *.txt, train.csv, val.csv)
 ├── checkpoints/                # Directory for saved model checkpoints
 ├── training_results/           # Directory for saved loss and accuracy plots
 |
@@ -32,9 +34,10 @@ gpt-from-scratch/
 ├── dataloader.py               # Data loading logic (GPTDataset, SpamDataset)
 ├── utils.py                    # Helper functions (generation, weight loading, config)
 ├── spam_data.py                # Script to download and process the spam dataset
-├── train.py                    # Main script for both pre-training and fine-tuning
+├── train.py                    # Script for pre-training
+├── fine_tune.py                # Script for fine-tuning (both instruction and classification)
 ├── verify_keys.py              # Script to verify OurModel vs GPT-2 124M model keys
-├── generate_text.py            # Script for running generative inference
+├── chatgpt2.py                 # Script for running generative inference
 ├── spam_ham_classifier.py      # Script for running classification inference
 |
 ├── OurModel_vs_GPT-2-124M.txt  # Model key comparison results
