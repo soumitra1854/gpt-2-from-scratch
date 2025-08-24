@@ -133,7 +133,7 @@ class ChatBot:
 
 
 # Initialize the chatbot
-chatbot = ChatBot(model_path="checkpoints/trained_model.pth")
+chatbot = ChatBot(model_path="checkpoints/trained_model_model_only.pth")
 
 
 @app.route('/')
@@ -142,7 +142,7 @@ def index():
     if 'session_id' not in session:
         session['session_id'] = str(uuid.uuid4())
         session['chat_history'] = []
-    return render_template('index.html')
+    return render_template('chatgpt2_app.html')
 
 
 @app.route('/chat', methods=['POST'])

@@ -8,10 +8,9 @@ from utils import (
     GPT2_CONFIG_124M,
     load_weights_from_gpt2
 )
-from train import train_model, plot_losses
+from train import train_model, plot_vals
 from model import GPTModel, GPTSpamClassification
 from dataloader import create_spam_dataloader, create_instruction_dataloader, format_input
-import matplotlib.pyplot as plt
 
 
 def evaluate_classifier(model, train_loader, val_loader, device, eval_iter):
@@ -44,23 +43,6 @@ def evaluate_classifier(model, train_loader, val_loader, device, eval_iter):
     if eval_iter == 0:
         return 0., 0.
     return train_loss / eval_iter, val_loss / eval_iter
-
-
-def plot_values(epochs_seen, examples_seen, train_values, val_values, save_path, label="loss"):
-    fig, ax1 = plt.subplots(figsize=(5, 3))
-    ax1.plot(epochs_seen, train_values, label=f"Training {label}")
-    ax1.plot(epochs_seen, val_values, linestyle="-.",
-             label=f"Validation {label}")
-    ax1.set_xlabel("Epochs")
-    ax1.set_ylabel(label.capitalize())
-    ax1.legend()
-    ax2 = ax1.twiny()
-    ax2.plot(examples_seen, train_values, alpha=0)
-    ax2.set_xlabel("Examples seen")
-    fig.tight_layout()
-    plt.savefig(save_path)
-    plt.close()
-    print(f"{label.capitalize()} plot saved to {save_path}")
 
 
 def train_classifier(model, train_loader, val_loader, optimizer, device, num_epochs, eval_freq, eval_iter, start_epoch=0):
@@ -157,7 +139,8 @@ def evaluate_instruction_model(model, data_loader, device, tokenizer, num_exampl
                         next_token = torch.multinomial(probs, num_samples=1)
                         instruction_tensor = torch.cat(
                             [instruction_tensor, next_token], dim=1)
-                        eos_token_id = tokenizer.encode("<|endoftext|>", allowed_special={"<|endoftext|>"})[0]
+                        eos_token_id = tokenizer.encode(
+                            "<|endoftext|>", allowed_special={"<|endoftext|>"})[0]
                         if next_token.item() == eos_token_id:
                             break
                 generated_text = tokenizer.decode(
@@ -408,8 +391,8 @@ if __name__ == "__main__":
         loss_plot_path = os.path.join(plot_dir, "instruction_loss_plot.png")
         epochs_seen = torch.linspace(
             0, args.num_epochs, len(train_losses)).tolist()
-        plot_losses(epochs_seen, track_tokens_seen,
-                    train_losses, val_losses, loss_plot_path)
+        plot_vals(epochs_seen, track_tokens_seen,
+                  train_losses, val_losses, loss_plot_path, label="Loss")
 
         if os.path.exists("data/instruction_test.json"):
             print("Evaluating final instruction model on test set...")
@@ -426,8 +409,8 @@ if __name__ == "__main__":
         epochs_tensor = torch.linspace(0, args.num_epochs, len(train_losses))
         examples_seen_tensor = torch.linspace(
             0, examples_seen, len(train_losses))
-        plot_values(epochs_tensor, examples_seen_tensor,
-                    train_losses, val_losses, loss_plot_path)
+        plot_vals(epochs_tensor, examples_seen_tensor,
+                  train_losses, val_losses, loss_plot_path, label="Loss")
 
         # Accuracy plot
         acc_plot_path = os.path.join(plot_dir, "spam_accuracy_plot.png")
@@ -435,9 +418,9 @@ if __name__ == "__main__":
             0, args.num_epochs, len(train_accs))
         examples_seen_tensor_acc = torch.linspace(
             0, examples_seen, len(train_accs))
-        plot_values(
+        plot_vals(
             epochs_tensor_acc, examples_seen_tensor_acc,
-            train_accs, val_accs, acc_plot_path, label="accuracy"
+            train_accs, val_accs, acc_plot_path, label="Accuracy"
         )
 
         # Test evaluation

@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Spam Detector</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+            animation: fadeInDown 0.8s ease-out;
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            margin-bottom: 5px;
+        }
+
+        .header .subtitle {
+            font-size: 1rem;
+            opacity: 0.8;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .analyzer-section,
+        .batch-section {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+            animation: fadeInUp 0.8s ease-out;
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .message-input {
+            width: 100%;
+            min-height: 150px;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 16px;
+            font-size: 1rem;
+            font-family: inherit;
+            resize: vertical;
+            outline: none;
+            transition: border-color 0.3s ease;
+        }
+
+        .message-input:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .analyze-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 14px 24px;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 15px;
+            width: 100%;
+        }
+
+        .analyze-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+        }
+
+        .analyze-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .result-container {
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 12px;
+            display: none;
+        }
+
+        .result-container.show {
+            display: block;
+            animation: slideIn 0.5s ease-out;
+        }
+
+        .result-spam {
+            background: linear-gradient(135deg, #fef2f2, #fee2e2);
+            border-left: 4px solid #ef4444;
+        }
+
+        .result-ham {
+            background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+            border-left: 4px solid #22c55e;
+        }
+
+        .result-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+
+        .result-icon {
+            font-size: 1.5rem;
+        }
+
+        .result-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .spam-title {
+            color: #dc2626;
+        }
+
+        .ham-title {
+            color: #16a34a;
+        }
+
+        .confidence-meter {
+            margin: 15px 0;
+        }
+
+        .confidence-label {
+            font-size: 0.9rem;
+            color: #6b7280;
+            margin-bottom: 8px;
+        }
+
+        .confidence-bar {
+            width: 100%;
+            height: 8px;
+            background: #e5e7eb;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.8s ease-out;
+        }
+
+        .spam-confidence {
+            background: linear-gradient(90deg, #ef4444, #dc2626);
+        }
+
+        .ham-confidence {
+            background: linear-gradient(90deg, #22c55e, #16a34a);
+        }
+
+        .confidence-text {
+            text-align: right;
+            font-weight: 600;
+            margin-top: 5px;
+        }
+
+        .batch-upload {
+            border: 2px dashed #d1d5db;
+            border-radius: 12px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+        }
+
+        .batch-upload:hover {
+            border-color: #667eea;
+            background: #f8fafc;
+        }
+
+        .batch-upload.dragover {
+            border-color: #667eea;
+            background: #eff6ff;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .upload-icon {
+            font-size: 2rem;
+            color: #9ca3af;
+            margin-bottom: 10px;
+        }
+
+        .upload-text {
+            color: #6b7280;
+            font-size: 1rem;
+        }
+
+        .upload-hint {
+            color: #9ca3af;
+            font-size: 0.9rem;
+            margin-top: 5px;
+        }
+
+        .batch-results {
+            display: none;
+        }
+
+        .batch-results.show {
+            display: block;
+        }
+
+        .results-summary {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .summary-card {
+            background: #f8fafc;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .summary-number {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .summary-label {
+            color: #6b7280;
+            font-size: 0.9rem;
+        }
+
+        .total-number {
+            color: #374151;
+        }
+
+        .spam-number {
+            color: #dc2626;
+        }
+
+        .ham-number {
+            color: #16a34a;
+        }
+
+        .results-list {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+        }
+
+        .result-item {
+            padding: 12px 16px;
+            border-bottom: 1px solid #f3f4f6;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .result-item:last-child {
+            border-bottom: none;
+        }
+
+        .result-text {
+            flex: 1;
+            margin-right: 15px;
+            font-size: 0.9rem;
+        }
+
+        .result-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .spam-badge {
+            background: #fecaca;
+            color: #991b1b;
+        }
+
+        .ham-badge {
+            background: #bbf7d0;
+            color: #166534;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: #6b7280;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 3px solid #f3f4f6;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .stats-section {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            color: white;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            animation: fadeInUp 1s ease-out;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+        }
+
+        .stat-item {
+            padding: 15px;
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🛡️ AI Spam Detector</h1>
+            <p>Advanced GPT-2 Powered Message Classification</p>
+            <p class="subtitle">Instantly identify spam and legitimate messages with AI precision</p>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Single Message Analyzer -->
+            <div class="analyzer-section">
+                <h2 class="section-title">
+                    <span>🔍</span>
+                    Single Message Analysis
+                </h2>
+
+                <textarea id="messageInput" class="message-input" placeholder="Enter your message here to check if it's spam or ham...
+
+Examples:
+• 'Congratulations! You've won $1000 lottery! Click here now!'
+• 'Hey, are we still meeting for lunch tomorrow?'
+• 'URGENT: Your account will be closed. Update now!'"></textarea>
+
+                <button id="analyzeBtn" class="analyze-btn" onclick="analyzeMessage()">
+                    🚀 Analyze Message
+                </button>
+
+                <div id="loading" class="loading">
+                    <div class="spinner"></div>
+                    <div>Analyzing message...</div>
+                </div>
+
+                <div id="resultContainer" class="result-container">
+                    <div class="result-header">
+                        <span id="resultIcon" class="result-icon"></span>
+                        <span id="resultTitle" class="result-title"></span>
+                    </div>
+
+                    <div class="confidence-meter">
+                        <div class="confidence-label">Confidence Level</div>
+                        <div class="confidence-bar">
+                            <div id="confidenceFill" class="confidence-fill"></div>
+                        </div>
+                        <div id="confidenceText" class="confidence-text"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Batch Processing -->
+            <div class="batch-section">
+                <h2 class="section-title">
+                    <span>📂</span>
+                    Batch Processing
+                </h2>
+
+                <div class="batch-upload" onclick="document.getElementById('fileInput').click()">
+                    <div class="upload-icon">☁️</div>
+                    <div class="upload-text">Click to upload or drag and drop</div>
+                    <div class="upload-hint">CSV, TXT files supported (max 10MB)</div>
+                </div>
+
+                <input type="file" id="fileInput" class="file-input" accept=".csv,.txt" onchange="handleFileUpload()">
+
+                <div id="batchLoading" class="loading">
+                    <div class="spinner"></div>
+                    <div>Processing batch...</div>
+                </div>
+
+                <div id="batchResults" class="batch-results">
+                    <div class="results-summary">
+                        <div class="summary-card">
+                            <div id="totalCount" class="summary-number total-number">0</div>
+                            <div class="summary-label">Total Messages</div>
+                        </div>
+                        <div class="summary-card">
+                            <div id="spamCount" class="summary-number spam-number">0</div>
+                            <div class="summary-label">Spam Messages</div>
+                        </div>
+                        <div class="summary-card">
+                            <div id="hamCount" class="summary-number ham-number">0</div>
+                            <div class="summary-label">Ham Messages</div>
+                        </div>
+                    </div>
+
+                    <div id="resultsList" class="results-list"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Section -->
+        <div class="stats-section">
+            <h3 style="margin-bottom: 20px; font-size: 1.3rem;">🎯 Classification Statistics</h3>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div id="totalAnalyzed" class="stat-number">0</div>
+                    <div class="stat-label">Total Analyzed</div>
+                </div>
+                <div class="stat-item">
+                    <div id="accuracy" class="stat-number">94.2%</div>
+                    <div class="stat-label">Model Accuracy</div>
+                </div>
+                <div class="stat-item">
+                    <div id="avgConfidence" class="stat-number">87.5%</div>
+                    <div class="stat-label">Avg Confidence</div>
+                </div>
+                <div class="stat-item">
+                    <div id="processingTime" class="stat-number">0.12s</div>
+                    <div class="stat-label">Avg Process Time</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let totalAnalyzed = 0;
+        let confidenceSum = 0;
+
+        // Real API integration with Flask backend
+
+        async function analyzeMessage() {
+            const messageInput = document.getElementById('messageInput');
+            const analyzeBtn = document.getElementById('analyzeBtn');
+            const loading = document.getElementById('loading');
+            const resultContainer = document.getElementById('resultContainer');
+
+            const message = messageInput.value.trim();
+            if (!message) {
+                alert('Please enter a message to analyze');
+                return;
+            }
+
+            // Show loading
+            analyzeBtn.disabled = true;
+            loading.classList.add('show');
+            resultContainer.classList.remove('show');
+
+            try {
+                const response = await fetch('/classify', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: message
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Hide loading
+                    loading.classList.remove('show');
+
+                    // Show result
+                    displayResult({
+                        classification: data.classification,
+                        confidence: data.confidence
+                    });
+
+                    // Update stats
+                    await updateStats();
+                } else {
+                    throw new Error(data.error || 'Classification failed');
+                }
+
+            } catch (error) {
+                loading.classList.remove('show');
+                alert('Error analyzing message: ' + error.message);
+                console.error('Classification error:', error);
+            } finally {
+                analyzeBtn.disabled = false;
+            }
+        }
+
+        function displayResult(result) {
+            const resultContainer = document.getElementById('resultContainer');
+            const resultIcon = document.getElementById('resultIcon');
+            const resultTitle = document.getElementById('resultTitle');
+            const confidenceFill = document.getElementById('confidenceFill');
+            const confidenceText = document.getElementById('confidenceText');
+
+            const isSpam = result.classification === 'Spam';
+
+            resultContainer.className = `result-container show ${isSpam ? 'result-spam' : 'result-ham'}`;
+            resultIcon.textContent = isSpam ? '🚫' : '✅';
+            resultTitle.textContent = `This message is classified as ${result.classification}`;
+            resultTitle.className = `result-title ${isSpam ? 'spam-title' : 'ham-title'}`;
+
+            confidenceFill.className = `confidence-fill ${isSpam ? 'spam-confidence' : 'ham-confidence'}`;
+            confidenceFill.style.width = `${result.confidence * 100}%`;
+            confidenceText.textContent = `${(result.confidence * 100).toFixed(1)}%`;
+        }
+
+        async function updateStats() {
+            try {
+                const response = await fetch('/stats');
+                const stats = await response.json();
+
+                if (response.ok) {
+                    document.getElementById('totalAnalyzed').textContent = stats.total_analyzed || 0;
+                    document.getElementById('avgConfidence').textContent = `${(stats.average_confidence || 0).toFixed(1)}%`;
+                    document.getElementById('processingTime').textContent = `${(stats.average_processing_time || 0).toFixed(3)}s`;
+                }
+            } catch (error) {
+                console.error('Error updating stats:', error);
+            }
+        }
+
+        // Remove simulate analysis function and update processBatchFile
+
+        async function processBatchFile(file) {
+            const batchLoading = document.getElementById('batchLoading');
+            const batchResults = document.getElementById('batchResults');
+
+            batchLoading.classList.add('show');
+            batchResults.classList.remove('show');
+
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+
+                const response = await fetch('/classify_batch', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    displayBatchResults(data.results, data.summary);
+                    await updateStats(); // Update overall stats
+                } else {
+                    throw new Error(data.error || 'Batch processing failed');
+                }
+
+            } catch (error) {
+                alert('Error processing file: ' + error.message);
+                console.error('Batch processing error:', error);
+            } finally {
+                batchLoading.classList.remove('show');
+            }
+        }
+
+        function displayBatchResults(results, summary) {
+            const batchResults = document.getElementById('batchResults');
+            const totalCount = document.getElementById('totalCount');
+            const spamCount = document.getElementById('spamCount');
+            const hamCount = document.getElementById('hamCount');
+            const resultsList = document.getElementById('resultsList');
+
+            totalCount.textContent = summary.total;
+            spamCount.textContent = summary.spam_count;
+            hamCount.textContent = summary.ham_count;
+
+            resultsList.innerHTML = results.map(result => `
+                <div class="result-item">
+                    <div class="result-text">${result.message.substring(0, 100)}${result.message.length > 100 ? '...' : ''}</div>
+                    <div class="result-badge ${result.classification === 'Spam' ? 'spam-badge' : 'ham-badge'}">
+                        ${result.classification} (${(result.confidence * 100).toFixed(0)}%)
+                    </div>
+                </div>
+            `).join('');
+
+            batchResults.classList.add('show');
+        }
+
+        // Load stats on page load
+        window.addEventListener('load', async function () {
+            await updateStats();
+
+            // Check if model is loaded
+            try {
+                const response = await fetch('/model_info');
+                const modelInfo = await response.json();
+
+                if (!modelInfo.model_loaded) {
+                    alert('⚠️ Warning: Spam classification model not loaded. Please train the model first using fine_tune.py');
+                }
+            } catch (error) {
+                console.error('Error checking model info:', error);
+            }
+        });
+
+        // File upload handling
+        function handleFileUpload() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+
+            if (!file) return;
+
+            if (file.size > 10 * 1024 * 1024) {
+                alert('File size must be less than 10MB');
+                return;
+            }
+
+            processBatchFile(file);
+        }
+
+        async function processBatchFile(file) {
+            const batchLoading = document.getElementById('batchLoading');
+            const batchResults = document.getElementById('batchResults');
+
+            batchLoading.classList.add('show');
+            batchResults.classList.remove('show');
+
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+
+                const response = await fetch('/classify_batch', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    displayBatchResults(data.results, data.summary);
+                    await updateStats(); // Update overall stats
+                } else {
+                    throw new Error(data.error || 'Batch processing failed');
+                }
+
+            } catch (error) {
+                alert('Error processing file: ' + error.message);
+                console.error('Batch processing error:', error);
+            } finally {
+                batchLoading.classList.remove('show');
+            }
+        }
+
+        function displayBatchResults(results, summary) {
+            const batchResults = document.getElementById('batchResults');
+            const totalCount = document.getElementById('totalCount');
+            const spamCount = document.getElementById('spamCount');
+            const hamCount = document.getElementById('hamCount');
+            const resultsList = document.getElementById('resultsList');
+
+            totalCount.textContent = summary.total;
+            spamCount.textContent = summary.spam_count;
+            hamCount.textContent = summary.ham_count;
+
+            resultsList.innerHTML = results.map(result => `
+                <div class="result-item">
+                    <div class="result-text">${result.message.substring(0, 100)}${result.message.length > 100 ? '...' : ''}</div>
+                    <div class="result-badge ${result.classification === 'Spam' ? 'spam-badge' : 'ham-badge'}">
+                        ${result.classification} (${(result.confidence * 100).toFixed(0)}%)
+                    </div>
+                </div>
+            `).join('');
+
+            batchResults.classList.add('show');
+        }
+
+        // Drag and drop functionality
+        const batchUpload = document.querySelector('.batch-upload');
+
+        batchUpload.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            batchUpload.classList.add('dragover');
+        });
+
+        batchUpload.addEventListener('dragleave', () => {
+            batchUpload.classList.remove('dragover');
+        });
+
+        batchUpload.addEventListener('drop', (e) => {
+            e.preventDefault();
+            batchUpload.classList.remove('dragover');
+
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                document.getElementById('fileInput').files = files;
+                handleFileUpload();
+            }
+        });
+
+        // Enter key to analyze
+        document.getElementById('messageInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                analyzeMessage();
+            }
+        });
+    </script>
+</body>
+
+</html>

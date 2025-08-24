@@ -17,25 +17,26 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
 
 
-def plot_losses(epochs_seen, tokens_seen, train_losses, val_losses, save_path):
+def plot_vals(epochs_seen, tokens_seen, train_losses, val_losses, save_path, label="Loss"):
     fig, ax1 = plt.subplots(figsize=(12, 7))
-    ax1.plot(epochs_seen, train_losses, label="Training loss", linewidth=2)
+    ax1.plot(epochs_seen, train_losses,
+             label=f"Training {label.lower()}", linewidth=2)
     ax1.plot(epochs_seen, val_losses, linestyle="-.",
-             label="Validation loss", linewidth=2)
+             label=f"Validation {label.lower()}", linewidth=2)
     ax1.set_xlabel("Epochs", fontsize=12)
-    ax1.set_ylabel("Loss", fontsize=12)
+    ax1.set_ylabel(label, fontsize=12)
     ax1.legend(loc="upper right", frameon=True, fancybox=True, shadow=True)
     ax1.xaxis.set_major_locator(MaxNLocator(integer=True))
     ax1.grid(True, alpha=0.3)
     ax2 = ax1.twiny()
     ax2.plot(tokens_seen, train_losses, alpha=0)
     ax2.set_xlabel("Tokens seen", fontsize=12)
-    plt.title("Training and Validation Loss over Epochs",
+    plt.title(f"Training and Validation {label} over Epochs",
               fontsize=16, fontweight='bold', color='blue', pad=20)
     plt.tight_layout()
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
     plt.close()
-    print(f"Loss plot saved to {save_path}")
+    print(f"{label} plot saved to {save_path}")
 
 
 def evaluate_model(model, train_loader, val_loader, device, eval_iter):
@@ -338,8 +339,8 @@ if __name__ == "__main__":
     plot_path = os.path.join(args.plot_dir, "train_loss_plot.png")
     epochs_seen = torch.linspace(
         0, args.num_epochs, len(train_losses)).tolist()
-    plot_losses(epochs_seen, track_tokens_seen,
-                train_losses, val_losses, plot_path)
+    plot_vals(epochs_seen, track_tokens_seen,
+              train_losses, val_losses, plot_path, label="Loss")
 
     # --- Final Summary ---
     print("\n" + "="*50)
