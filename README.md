@@ -1,5 +1,10 @@
 # GPT-2 From Scratch
 
+[![MIT License](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/soumitra1854/gpt-2-from-scratch/blob/main/LICENSE)
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-ee4c2c.svg)](https://pytorch.org/)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+
 This project demonstrates the journey of building, pre-training, and fine-tuning a GPT-2 model from the ground up using PyTorch. The goal is to gain a first-principles understanding of modern Large Language Model (LLM) architectures, moving beyond high-level abstractions provided by tools like LangChain, Hugging Face Transformers, OpenAI's API, etc.
 
 This implementation is a replication of the GPT-2 (124M parameters) architecture and is divided into two main parts:
