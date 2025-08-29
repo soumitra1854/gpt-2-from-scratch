@@ -10,7 +10,7 @@ This project demonstrates the journey of building, pre-training, and fine-tuning
 This implementation is a replication of the GPT-2 (124M parameters) architecture and is divided into two main parts:
 1.  **Generative Pre-Training**: Building the base model and training it for text completion on a custom corpus.
 2.  **Fine-Tuning**: Fine-tuning the foundational GPT-2 (124M) model for specific downstream tasks. Two different fine-tuning techniques are used:
-    * **Classification Fine-Tuning**: Adapting the pre-trained model for a specific downstream task—email spam detection—and deploying it as a web app.
+    * **Classification Fine-Tuning**: Adapting the pre-trained model for a specific downstream task—spam detection—and deploying it as a web app.
     * **Instruction Fine-Tuning**: Training the model to follow specific instructions or prompts more effectively.
 
 The primary learning resources for this project are the book **"Build a Large Language Model from Scratch"** by Sebastian Raschka and the **Vizuara - "Building LLMs from scratch"** YouTube playlist.
